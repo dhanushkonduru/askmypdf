@@ -8,7 +8,7 @@ The system leverages modern AI components such as vector databases, transformer-
 ### 📘 What is RAG?
 RAG (Retrieval-Augmented Generation) is a powerful approach that enhances language models by feeding them relevant external context (like documents or PDFs) retrieved through vector search.
 
-How it works:
+How it works:-
 
 Retrieval – Retrieve relevant chunks of data using semantic similarity.
 
