@@ -516,15 +516,27 @@ def existing_qdrant_collections():
         return []
 
 def embed_all_pdfs_in_folder(folder_path=UPLOAD_DIR):
-    collections = existing_qdrant_collections()
+    try:
+        collections = existing_qdrant_collections()
+    except:
+        collections = []
+    
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path, exist_ok=True)
+        return
+    
     for file_name in os.listdir(folder_path):
         if file_name.endswith(".pdf"):
             full_path = os.path.join(folder_path, file_name)
             collection_name = clean_collection_name(file_name)
             if collection_name not in collections:
-                st.toast(f"📥 Embedding {file_name}...")
-                embed_pdf_to_qdrant(full_path, collection_name=collection_name)
-                st.toast(f"✅ Embedded `{file_name}`")
+                try:
+                    st.toast(f"📥 Embedding {file_name}...")
+                    embed_pdf_to_qdrant(full_path, collection_name=collection_name)
+                    st.toast(f"✅ Embedded `{file_name}`")
+                except Exception as e:
+                    st.error(f"❌ Failed to embed {file_name}: {str(e)}")
+                    print(f"Error embedding {file_name}: {str(e)}")
 
 # Initialize session state for chat history
 if 'chat_history' not in st.session_state:
@@ -604,13 +616,15 @@ with st.sidebar:
         """, unsafe_allow_html=True)
 
 # 📌 Load embedded collections (only run if not already processed)
-if 'collections_loaded' not in st.session_state and collections is not None:
+if 'collections_loaded' not in st.session_state:
     try:
-        with st.spinner("Loading PDFs..."):
+        with st.spinner("Loading PDFs from uploads folder..."):
             embed_all_pdfs_in_folder()
             st.session_state.collections_loaded = True
             # Refresh collections after embedding
             collections = existing_qdrant_collections()
+            if collections:
+                st.success(f"✅ Loaded {len(collections)} PDF collection(s)")
     except Exception as e:
         st.warning(f"⚠️ Could not load PDFs: {str(e)}")
         st.session_state.collections_loaded = True  # Mark as loaded to prevent retry loop
