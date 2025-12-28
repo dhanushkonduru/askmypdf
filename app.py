@@ -727,10 +727,28 @@ if submitted:
     if user_query.strip() and selected_pdfs:
         try:
             with st.spinner("🤔 Thinking... This may take a moment"):
+                # Get document context and chat history for query enhancement
+                doc_context = st.session_state.get('documents', [])
+                chat_hist = st.session_state.get('chat_history', [])
+                
                 if st.session_state.show_debug:
-                    answer, chunks = ask_pdf(user_query, collections=selected_pdfs, top_k=6, return_chunks=True)
+                    answer, chunks = ask_pdf(
+                        user_query, 
+                        collections=selected_pdfs, 
+                        top_k=10,  # Reduced to fit within token limits
+                        return_chunks=True,
+                        document_context=doc_context,
+                        chat_history=chat_hist
+                    )
                 else:
-                    answer = ask_pdf(user_query, collections=selected_pdfs, top_k=6, return_chunks=False)
+                    answer = ask_pdf(
+                        user_query, 
+                        collections=selected_pdfs, 
+                        top_k=10,  # Reduced to fit within token limits
+                        return_chunks=False,
+                        document_context=doc_context,
+                        chat_history=chat_hist
+                    )
                     chunks = []
             
             # Determine sources for display
