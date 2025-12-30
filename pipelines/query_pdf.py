@@ -150,32 +150,13 @@ def enforce_bullet_length(text: str, max_words: int = 15) -> str:
 
 
 def improve_readability(answer: str) -> str:
-    """Post-process answer to enforce readability rules - truncate overly long bullets."""
-    lines = answer.split('\n')
-    improved = []
-    
-    for line in lines:
-        # If it's a bullet point (starts with -)
-        if line.strip().startswith('-') and '[Source:' in line:
-            # Extract text before [Source:]
-            parts = line.split('[Source:')
-            if len(parts) == 2:
-                text = parts[0].replace('-', '').strip()
-                source = '[Source:' + parts[1]
-                
-                # Enforce word limit (20 for Key Details, 15 for Summary)
-                # We'll use 20 as default since it's safer
-                words = text.split()
-                if len(words) > 20:
-                    text = ' '.join(words[:18]) + '...'
-                
-                improved.append(f"- {text} {source}")
-            else:
-                improved.append(line)
-        else:
-            improved.append(line)
-    
-    return '\n'.join(improved)
+    """Post-process answer to clean up any inline source citations."""
+    # Remove any inline [Source: ...] citations that might have been added
+    # Sources should only be listed at the end in the Sources section
+    import re
+    # Remove inline source citations from the body text
+    cleaned = re.sub(r'\s*\[Source:[^\]]+\]', '', answer)
+    return cleaned
 
 
 def build_sources_list(chunks: List[Dict]) -> List[str]:
@@ -218,40 +199,37 @@ USER QUESTION: {original_query}
 
 CORE RULES (NON-NEGOTIABLE):
 
-1. STRICT GROUNDING
-   • Every factual statement MUST be explicitly in the retrieved context
-   • If answer is NOT clearly present → refuse immediately
-   • Platform names/URLs alone are NOT evidence of content
-   • Refusal is correct behavior, not failure
+1. PRIMARY SOURCE: DOCUMENTS FIRST
+   • ALWAYS check retrieved context FIRST
+   • If information is found in documents → use it
+   • Document information takes priority
 
-2. PERSON & IDENTITY QUERIES (CRITICAL)
+2. SECONDARY SOURCE: GENERAL KNOWLEDGE (when documents don't have answer)
+   • If the answer is NOT in retrieved context → you MAY use well-established general knowledge
+   • BUT: Only use information that is widely accepted and verifiable
+   • Clearly indicate when information comes from general knowledge vs documents
+   • Be cautious and fact-check mentally before stating facts
+
+3. VERIFICATION REQUIREMENT
+   • Before providing information not in documents, verify it's accurate
+   • Only state facts you are confident about
+   • If uncertain about external information, say so explicitly
+   • Prefer stating limitations over incorrect information
+
+4. PERSON & IDENTITY QUERIES
    When asked about a PERSON (who is X, tell me about X, X's profile):
    
-   ✅ Answer ONLY if context contains:
-      - Explicit biographical text
-      - Personal description or background
-      - Professional achievements WITH details
-      - Educational or career information
+   ✅ From documents: Answer if context contains explicit biographical text
+   ✅ From general knowledge: If not in documents, you MAY provide well-known biographical information (e.g., historical figures, famous people)
+   ❌ Do NOT infer from: usernames, URLs, platform features alone
    
-   ❌ Do NOT answer if context only has:
-      - Username or account name
-      - GitHub/LinkedIn/social media URLs
-      - Platform feature descriptions
-      - Repository/project lists without descriptions
-      - Generic platform capabilities
-   
-   If person info NOT explicitly present, respond ONLY:
-   "I cannot find information about this person in the provided documents."
-   
-   NO explanations. NO suggestions. NO platform descriptions.
+   Always clearly distinguish: "Based on the documents:" vs "From general knowledge:"
 
-3. READABILITY REQUIREMENTS (CRITICAL FOR UX)
-   • Summary bullets: MAX 15 words each
-   • Key Details bullets: MAX 20 words each
+3. READABILITY REQUIREMENTS
    • Use simple, clear language
-   • ONE idea per bullet
-   • NO run-on sentences
-   • Citations at END of bullet only
+   • Write naturally - NO inline source citations
+   • All sources listed ONLY at the end in Sources section
+   • NO [Source: ...] tags in the text body
 
 4. NO FILLER LANGUAGE
    NEVER say:
@@ -269,44 +247,44 @@ CORE RULES (NON-NEGOTIABLE):
 
 OUTPUT FORMAT (MANDATORY - FOLLOW EXACTLY):
 
-IF ANSWER IS SUPPORTED BY CONTEXT:
+IF ANSWER IS IN DOCUMENTS:
 
 ### Summary
-- [First key point - MAX 15 words] [Source: Doc Name]
-- [Second key point - MAX 15 words] [Source: Doc Name]
-- [Third key point - MAX 15 words] [Source: Doc Name]
-
-(3-5 bullets MAXIMUM. Keep each bullet SHORT and FOCUSED.)
+[Write 2-3 clear paragraphs summarizing the key points from the documents. Write naturally without inline citations.]
 
 ### Key Details
 
 **[Category 1 - Short Name]**
-- [Single clear fact - MAX 20 words] [Source: Doc]
-- [Another single fact - MAX 20 words] [Source: Doc]
+[Write paragraphs explaining the details from the documents. Write naturally.]
 
 **[Category 2 - Short Name]**
-- [Single clear fact] [Source: Doc]
-- [Another single fact] [Source: Doc]
-
-(Group related facts. 2-3 categories MAX. Keep bullets SHORT.)
-
-### How This Was Determined
-Retrieved from {num_sources} sources ({source_type_list}). Confidence: [High/Medium/Low].
-
-(ONE sentence only. Be concise.)
+[More details from documents.]
 
 ### Sources
-- **[Doc 1]** → Summary claims, Product overview
-- **[Doc 2]** → Deployment options, Cloud features
-- **[Doc 3]** → Pricing information
-
-(List documents and WHICH SECTIONS they supported. Be specific but brief.)
+- **[Document Name]** - Used for: [summary, key details about X, information about Y]
+- **[Another Document]** - Used for: [information about Z, details about W]
 
 ---
 
-IF ANSWER IS NOT SUPPORTED BY CONTEXT:
+IF ANSWER IS NOT IN DOCUMENTS BUT YOU CAN PROVIDE GENERAL KNOWLEDGE:
 
-I cannot find information about this [person/topic] in the provided documents.
+### Summary
+[Write summary based on general knowledge. Start with: "While this information is not in the provided documents, from general knowledge:"]
+
+### Key Details
+[Provide well-established, verifiable information. Clearly indicate this comes from general knowledge, not the documents.]
+
+### Sources
+- **General Knowledge** - Information not present in uploaded documents
+- Note: The provided documents were checked first but did not contain this information
+
+---
+
+IF YOU ARE UNCERTAIN ABOUT EXTERNAL INFORMATION:
+
+I cannot find information about [topic] in the provided documents. While I have some general knowledge about this topic, I want to ensure accuracy. Could you please verify the information from a reliable source?
+
+IMPORTANT: Do NOT put [Source: ...] after every sentence. Write naturally and list all sources at the end. Always clearly distinguish between document-based and general knowledge information.
 
 ---
 
